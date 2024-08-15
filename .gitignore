@@ -141,3 +141,7 @@ dmypy.json
 
 # VS Code settings
 .vscode/
+
+# Dataset
+data/names/names.txt
+count_matrix.png
