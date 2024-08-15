@@ -6,19 +6,19 @@ import matplotlib.pyplot as plt
 PATH = '..\\data\\names\\names.txt'
 
 
-class BigramModel:
-    NUM_CHARACTERS = 27
+class NgramModel:
     SEED = 2147483647
 
-    def __init__(self, smooth_factor: int = 1):
+    def __init__(self, n: int, smooth_factor: int = 1):
+        self.n = n
+        self.smooth_factor = smooth_factor
         self.words = None
+        self.chars = None
         self.encoder = None
         self.decoder = None
-        self.bigram_counts = torch.zeros(BigramModel.NUM_CHARACTERS, BigramModel.NUM_CHARACTERS
-                                         , dtype=torch.int32)
+        self.bigram_counts = None
         self.probs = None
         self.avg_nll = None
-        self.smooth_factor = smooth_factor
 
     def _read_words(self, path: str) -> None:
         """
@@ -35,9 +35,9 @@ class BigramModel:
         Notes: The character "." denotes both the start and the ending of a word and it is encoded as 0, the rest of the
         characters take increasing values from 1, up to 27, in an alphabetical order (i.e. a -> 1, b -> 2, etc)
         """
-        chars = list(set("".join(self.words)))
-        chars = sorted(chars)
-        self.encoder = {s: i + 1 for i, s in enumerate(chars)}
+        self.chars = list(set("".join(self.words)))
+        self.chars = sorted(self.chars)
+        self.encoder = {s: i + 1 for i, s in enumerate(self.chars)}
         self.encoder["."] = 0
 
     def _create_decoder(self) -> None:
@@ -52,12 +52,13 @@ class BigramModel:
 
         Notes: The n is the integer of the ngram, for a bigram model, n == 2
         """
+        self.bigram_counts = torch.zeros(size=[len(self.chars)] * self.n, dtype=torch.int32)
         for w in self.words:
             characters = ["."] + list(w) + ["."]
-            for ch1, ch2 in zip(characters, characters[1:]):
-                i_ch1 = self.encoder[ch1]
-                i_ch2 = self.encoder[ch2]
-                self.bigram_counts[i_ch1, i_ch2] += 1
+            iterators = [characters[i:] for i in range(self.n)]
+            for seq in zip(*iterators):
+                ch_indices = [self.encoder[ch] for ch in seq]
+                self.bigram_counts[tuple(ch_indices)] += 1
 
     def _create_probs(self) -> None:
         """
@@ -65,15 +66,17 @@ class BigramModel:
         character after an n-1 sequence of characters
 
         E.g. In a bigram model (assuming a, b and c are encoded as 1, 2, 3, respectively), self.probs[1][2] represents
-        the probability of observing the character "b" after the "a". In a trigram, self.probs[1][2][3] represents
+        the probability of observing the character "b" after "a". In a trigram, self.probs[1][2][3] represents
         the probability of observing the character "c" after the sequence "ab", etc
 
         Note: The ngram_count are artificially increased by the smooth_factor to avoid zero probs/ infinite nll
-
         """
+
         self.probs = self.bigram_counts.float() + self.smooth_factor
         # Normalize the counts by their sum to get probability distributions
-        self.probs /= self.probs.sum(dim=1, keepdim=True)
+        self.probs /= self.probs.sum(dim=(self.n - 1), keepdim=True)
+
+        # For bigram:
         # probs.shape =                               (27, 27)  |
         #                                                       |=> The broadcasting will copy the column
         # self.probs.sum(dim=1, keepdim=True).shape = (27,  1)  |   27 times and perform element-wise division
@@ -89,8 +92,8 @@ class BigramModel:
 
         font_size = 5
 
-        for i in range(BigramModel.NUM_CHARACTERS):
-            for j in range(BigramModel.NUM_CHARACTERS):
+        for i in range(len(self.chars)):
+            for j in range(len(self.chars)):
                 ch_str = self.decoder[i] + self.decoder[j]
                 plt.text(j, i, ch_str, ha="center", va="bottom", color="gray", fontsize=font_size + 4)
                 plt.text(j, i, str(self.bigram_counts[i, j].item()), ha="center", va="top", color="gray",
@@ -156,9 +159,9 @@ class BigramModel:
 # TODO: Generalise the bigram to ngram model
 
 def main():
-    model = BigramModel()
+    model = NgramModel()
     model.setup(PATH)
-    g = torch.Generator().manual_seed(BigramModel.SEED)
+    g = torch.Generator().manual_seed(NgramModel.SEED)
 
     print(model.get_avg_nll(model.words))
 
