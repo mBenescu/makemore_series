@@ -165,8 +165,6 @@ class NgramModel:
                 return generated_str[:-1]
 
 
-# TODO: Generalise the bigram to ngram model
-
 def main():
     bigram = NgramModel(n=2)
     bigram.setup(PATH)
