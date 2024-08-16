@@ -1,50 +1,22 @@
 from typing import List, Dict
 import torch
 import sys
+from model.model_abc import Model
 import matplotlib.pyplot as plt
 
-PATH = '..\\data\\names\\names.txt'
 
 
-class NgramModel:
+
+class NgramModel(Model):
     SEED = 2147483647
 
     def __init__(self, n: int, smooth_factor: int = 1):
         self.n = n
         self.smooth_factor = smooth_factor
-        self.words = None
-        self.chars = None
-        self.encoder = None
-        self.decoder = None
         self.ngram_counts = None
         self.probs = None
         self.avg_nll = None
 
-    def _read_words(self, path: str) -> None:
-        """
-        Reads the words at path
-        :param path:  location of the file
-        """
-        self.words = open(path, 'r').read().splitlines()
-
-    def _create_encoder(self) -> None:
-        """
-        Encodes the characters in a dictionary (self.encoder) where the key is the character and value is a numerical
-        integer between 0 and 27
-
-        Notes: The character "." denotes both the start and the ending of a word and it is encoded as 0, the rest of the
-        characters take increasing values from 1, up to 27, in an alphabetical order (i.e. a -> 1, b -> 2, etc)
-        """
-        self.chars = list(set("".join(self.words)))
-        self.chars.append(".")
-        self.chars = sorted(self.chars)
-        self.encoder = {s: i for i, s in enumerate(self.chars)}
-
-    def _create_decoder(self) -> None:
-        """
-        Decodes the integers, by reversing the tuples (key, value) in the encoder
-        """
-        self.decoder = {i: s for s, i in self.encoder.items()}
 
     def _create_ngrams_counts(self) -> None:
         """
@@ -167,13 +139,13 @@ class NgramModel:
 
 def main():
     bigram = NgramModel(n=2)
-    bigram.setup(PATH)
+    bigram.setup(Model.PATH)
 
     trigram = NgramModel(n=3)
-    trigram.setup(PATH)
+    trigram.setup(Model.PATH)
 
     fourgram = NgramModel(n=4)
-    fourgram.setup(PATH)
+    fourgram.setup(Model.PATH)
 
     g = torch.Generator().manual_seed(NgramModel.SEED)
 
