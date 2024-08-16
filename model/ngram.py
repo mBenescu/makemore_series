@@ -16,7 +16,7 @@ class NgramModel:
         self.chars = None
         self.encoder = None
         self.decoder = None
-        self.bigram_counts = None
+        self.ngram_counts = None
         self.probs = None
         self.avg_nll = None
 
@@ -36,9 +36,9 @@ class NgramModel:
         characters take increasing values from 1, up to 27, in an alphabetical order (i.e. a -> 1, b -> 2, etc)
         """
         self.chars = list(set("".join(self.words)))
+        self.chars.append(".")
         self.chars = sorted(self.chars)
-        self.encoder = {s: i + 1 for i, s in enumerate(self.chars)}
-        self.encoder["."] = 0
+        self.encoder = {s: i for i, s in enumerate(self.chars)}
 
     def _create_decoder(self) -> None:
         """
@@ -46,23 +46,21 @@ class NgramModel:
         """
         self.decoder = {i: s for s, i in self.encoder.items()}
 
-    def _create_bigrams_counts(self) -> None:
+    def _create_ngrams_counts(self) -> None:
         """
         Stores the number of times a sequence of n characters has been observed in an n-dimensional tensor
 
         Notes: The n is the integer of the ngram, for a bigram model, n == 2
         """
-        self.bigram_counts = torch.zeros(size=[len(self.chars)] * self.n, dtype=torch.int32)
-        for w in self.words[0]:
+        self.ngram_counts = torch.zeros(size=[len(self.chars)] * self.n, dtype=torch.int32)
+        for w in self.words:
             characters = ["."] + list(w) + ["."]
-            # There is a big issue here, instead of range(self.n) I think it should be range(len(w))
-            # TODO: FIX THIS
-            iterators = [characters[i:] for i in range(self.n)]
-            print(iterators)
-            for seq in zip(*iterators):
-                ch_indices = [self.encoder[ch] for ch in seq]
-                print(ch_indices, seq)
-                self.bigram_counts[tuple(ch_indices)] += 1
+            iterators = [characters[i:] for i in range(len(characters))]
+            for seq in iterators:
+                ngram = seq[:self.n]
+                if len(ngram) == self.n:
+                    ch_indices = [self.encoder[ch] for ch in ngram]
+                    self.ngram_counts[tuple(ch_indices)] += 1
 
     def _create_probs(self) -> None:
         """
@@ -76,7 +74,7 @@ class NgramModel:
         Note: The ngram_count are artificially increased by the smooth_factor to avoid zero probs/ infinite nll
         """
 
-        self.probs = self.bigram_counts.float() + self.smooth_factor
+        self.probs = self.ngram_counts.float() + self.smooth_factor
         # Normalize the counts by their sum to get probability distributions
         self.probs /= self.probs.sum(dim=(self.n - 1), keepdim=True)
 
@@ -92,7 +90,7 @@ class NgramModel:
         Note: Only works for bigram models
         """
         plt.figure(figsize=(16, 16))
-        plt.imshow(self.bigram_counts, cmap='Blues')
+        plt.imshow(self.ngram_counts, cmap='Blues')
 
         font_size = 5
 
@@ -100,7 +98,7 @@ class NgramModel:
             for j in range(len(self.chars)):
                 ch_str = self.decoder[i] + self.decoder[j]
                 plt.text(j, i, ch_str, ha="center", va="bottom", color="gray", fontsize=font_size + 4)
-                plt.text(j, i, str(self.bigram_counts[i, j].item()), ha="center", va="top", color="gray",
+                plt.text(j, i, str(self.ngram_counts[i, j].item()), ha="center", va="top", color="gray",
                          fontsize=font_size)
         plt.axis("off")
         plt.show()
@@ -119,14 +117,16 @@ class NgramModel:
         n = 0
         for w in words:
             characters = ["."] + list(w) + ["."]
-            iterators = [characters[i:] for i in range(self.n)]
-            for seq in zip(*iterators):
-                ch_indices = [self.encoder[ch] for ch in seq]
-                prob = self.probs[tuple(ch_indices)]
-                log_likelihood += torch.log(prob)
-                n += 1
-            avg_nll = -log_likelihood / n
-            self.avg_nll = avg_nll
+            iterators = [characters[i:] for i in range(len(characters))]
+            for seq in iterators:
+                ngram = seq[:self.n]
+                if len(ngram) == self.n:
+                    ch_indices = [self.encoder[ch] for ch in ngram]
+                    prob = self.probs[tuple(ch_indices)]
+                    log_likelihood += torch.log(prob)
+                    n += 1
+        avg_nll = -log_likelihood / n
+        self.avg_nll = avg_nll
         return avg_nll
 
     def setup(self, path) -> None:
@@ -137,7 +137,7 @@ class NgramModel:
         self._read_words(path)
         self._create_encoder()
         self._create_decoder()
-        self._create_bigrams_counts()
+        self._create_ngrams_counts()
         self._create_probs()
 
     def __call__(self, g: torch.Generator = None) -> str:
@@ -168,15 +168,22 @@ class NgramModel:
 # TODO: Generalise the bigram to ngram model
 
 def main():
-    model = NgramModel(n=2)
-    model.setup(PATH)
+    bigram = NgramModel(n=2)
+    bigram.setup(PATH)
+
+    trigram = NgramModel(n=3)
+    trigram.setup(PATH)
+
+    fourgram = NgramModel(n=4)
+    fourgram.setup(PATH)
+
     g = torch.Generator().manual_seed(NgramModel.SEED)
 
-    print(model.get_avg_nll(model.words))
+    print(f"{bigram.get_avg_nll(bigram.words)=}, {trigram.get_avg_nll(trigram.words)=},"
+          f" {fourgram.get_avg_nll(fourgram.words)=}")
 
-    # model.display_bigrams_counts()
-    # for _ in range(5):
-    #     print(model(g=g))
+    for _ in range(10):
+        print(f"{bigram(g=g)=}, {trigram(g=g)=}, {fourgram(g=g)=}")
 
 
 if __name__ == "__main__":
