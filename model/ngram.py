@@ -5,18 +5,15 @@ from model.model_abc import Model
 import matplotlib.pyplot as plt
 
 
-
-
 class NgramModel(Model):
-    SEED = 2147483647
 
     def __init__(self, n: int, smooth_factor: int = 1):
+        super().__init__()
         self.n = n
         self.smooth_factor = smooth_factor
         self.ngram_counts = None
         self.probs = None
         self.avg_nll = None
-
 
     def _create_ngrams_counts(self) -> None:
         """
@@ -147,7 +144,7 @@ def main():
     fourgram = NgramModel(n=4)
     fourgram.setup(Model.PATH)
 
-    g = torch.Generator().manual_seed(NgramModel.SEED)
+    g = torch.Generator().manual_seed(Model.SEED)
 
     print(f"{bigram.get_avg_nll(bigram.words)=}, {trigram.get_avg_nll(trigram.words)=},"
           f" {fourgram.get_avg_nll(fourgram.words)=}")

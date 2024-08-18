@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 
+import torch
+
 
 class Model(ABC):
     PATH = '..\\data\\names\\names.txt'
+    SEED = 2147483647
 
     def __init__(self):
         self.words = None
@@ -38,4 +41,8 @@ class Model(ABC):
 
     @abstractmethod
     def setup(self, path: str):
+        pass
+
+    @abstractmethod
+    def __call__(self, g: torch.Generator) -> str:
         pass
