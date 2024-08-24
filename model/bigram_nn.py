@@ -43,12 +43,15 @@ class LinearBigram(Model):
     def _initialize_w(self, g: torch.Generator = None):
         self.W = torch.randn(len(self.chars), self.num_neurons, generator=g, requires_grad=True)
 
-    def _get_probs(self, x):
+    def _get_probs(self, x: torch.Tensor):
         x_encoded = self._encode(x)
         # logits = x_encoded.float() @ self.W
-        logits = self.W[x_encoded]
+        logits = self.W[x_encoded] - self.W.max()
         counts = logits.exp()
         self.probs = counts / counts.sum(dim=1, keepdim=True)
+
+    def _lr_decay(self, factor: int):
+        self.lr /= factor
 
     def forward(self):
         self._get_probs(self.x)
@@ -61,14 +64,15 @@ class LinearBigram(Model):
 
     def sgd(self):
         with torch.no_grad():
-            self.W += -self.lr * self.W
+            self.W += -self.lr * self.W.grad
 
     def train(self, num_iter):
         for i in range(num_iter):
             self.forward()
 
-            # if i % 10 == 0:
-            print(f"loss at {i=} = {self.loss}")
+            if i % 100 == 0:
+                print(f"loss at {i + 1=} = {self.loss}")
+                # self._lr_decay(factor=10)
 
             self.backward()
             self.sgd()
@@ -94,15 +98,15 @@ class LinearBigram(Model):
 
 
 def main():
-    model = LinearBigram(num_neurons=27, lr=0.1)
+    model = LinearBigram(num_neurons=27, lr=50)
     model.setup(Model.PATH)
-    model.train(100)
+    model.train(1000)
 
     bigram = NgramModel(n=2)
     bigram.setup(Model.PATH)
     bigram.get_avg_nll(bigram.words)
 
-    print(f"{model.loss=}, {bigram.avg_nll=}")
+    print(f"{model.loss.item()=}, {bigram.avg_nll=}")
 
 
 if __name__ == "__main__":
