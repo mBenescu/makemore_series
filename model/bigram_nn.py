@@ -22,7 +22,7 @@ class LinearBigram(Model):
         self.probs = None
         self.loss = None
 
-    def _create_xy(self, words: str) -> None:
+    def _create_xy(self, words: List[str]) -> None:
         self.x = []
         self.y = []
         for w in words:

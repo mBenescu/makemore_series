@@ -72,7 +72,7 @@ class NgramModel(Model):
         plt.axis("off")
         plt.show()
 
-    def get_avg_nll(self, words):
+    def get_avg_nll(self, words: List[str]):
         """
         GOAL: Maximize likelihood of the given examples
          == Maximize the log likelihood (log is monotonically increasing)
